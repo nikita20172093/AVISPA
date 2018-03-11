@@ -1,0 +1,149 @@
+role user (
+SPi, RA ,GWNODE, SD : agent,
+H : hash_func,
+S : symmetric_key,
+Snd, Rcv : channel(dy))
+played_by SPi
+def=
+local State: nat, IDi, PWi, BIOi, RPWi, A: text,
+R, GWNi, Ci, Bi, Ai, TIDi, Rsdj, RUi, M3, Ti, M1, M2, T3, T4: text,
+RPi, Rgwn, IDsdj, IDgwn, Kgwnsdj, Kgwnui, TIDinew, M11, M10, M12: text,
+Gen, Rep: hash_func,
+T1, Sigmai: text
+init State := 0
+transition
+1. State = 0 /\ Rcv(start) =|>
+% Registration phase
+State' := 1 /\ A' := new() /\ R' := new()
+/\ secret({PWi, BIOi, S, A', R'}, sr1, {SPi, RA})
+/\ Sigmai' := Gen(BIOi) /\ RPWi' := xor(H(PWi.Sigmai'.A'), R')
+/\ Snd({IDi.RPWi'}_S)
+
+2. State = 1 /\ Rcv({Ai'.TIDi'}_S) =|>
+State' := 2 /\ secret({PWi,GWNi,S,A',R'},sr2, {SPi, RA})
+/\ Bi' := xor(H(IDi.Sigmai),A')
+/\ RPWi' := H(PWi.Sigmai.A')
+/\ Ci' := xor(H(IDi.GWNi),RPWi')
+/\ RUi' := new() /\ Ti' := new()
+/\ M1' := H(IDi,GWNi')
+/\ M2' := xor(M1',RUi')
+/\ M3' := H(M2'.T1'.IDi.TIDi'.RUi')
+/\ Snd({TIDi'.M2'.M3'.Ti'}_S)
+/\ witness(RPi,GWNi,ui_gwn_t1, Ti')/\witness(RPi,GWNi,ui_gwn_rui,RUi')
+3. State = 2 /\ Rcv({RUi'.Rgwn'.Rsdj'.IDi.IDsdj.IDgwn.
+H(H(IDsdj.Kgwnsdj))}_H(IDi.Kgwnui).
+xor(TIDinew', H(TIDi'.H(IDi.Kgwnui).T3'.T4')).
+H(H(H(IDi.IDsdj.IDgwn.RUi'.Rgwn'.Rsdj'.
+H(H(IDi.Kgwnui)).H(H(IDsdj.Kgwnsdj))).T3').T4'.RUi').T3'.T4')=|>
+% Ui's acceptance of T4 and TIDinew generated for Ui by GWN
+State' := 3/\request(GWNi,RUi,gwn_ui_t4,T4')/\request(GWNi,RUi,gwn_ui_tidinew,TIDinew')
+end role
+
+
+role regAuthority (
+SPi, RA, GWNODE, SD : agent,
+H : hash_func,
+S : symmetric_key,
+Snd, Rcv : channel(dy)
+)
+played_by RA
+def=
+local State: nat, IDi, GWNi, RPWi, TIDi, Ai: text
+init State := 0
+transition
+1. State = 0 /\ Rcv({IDi.RPWi'}_S) =|>
+State' := 1 /\ GWNi' := new()
+/\ Ai' := xor(H(IDi.GWNi'),RPWi')
+/\ TIDi' := new()
+/\ Snd({Ai'.TIDi'}_S)
+end role
+
+
+role gatewayNode(
+SPi, RA, GWNODE, SD : agent,
+S : symmetric_key,
+H : hash_func,
+Snd, Rcv : channel(dy)
+)
+played_by GWNODE
+def=
+local State: nat, IDi, IDsdj, IDgwn, PWi, BIOi, RPWi, A: text,
+R, Kgwnui, Kgwnsdj, GWNi, Rgwn, Rsdj, T1, T2, M1, RUi, TIDi,TIDinew, Ruistar: text,
+M2, M3, M4, M6, M7, M8, T3, T4, M10, M11, M12, Sigmai: text,
+Gen, Rep : hash_func
+init State := 0
+transition
+1. State = 0 /\ Rcv(TIDi.M2'.M3'.T1') =|>
+State' := 1 /\ M4' := H(IDi.GWNi)
+/\ Ruistar' := xor(M2', M4')
+/\ Rgwn' := new()
+/\ T2' := new()
+/\ M6' := H(IDsdj.Kgwnsdj)
+/\ M7' := {IDi.IDgwn.Ruistar'.Rgwn.H(M4')}_M6'
+/\ M8' := H(M6'.T2'.IDi.IDsdj.IDgwn.Rgwn')
+/\ Snd(M7'.M8'.T2')
+2. State = 1 /\ Rcv(M10'.M11'.M12'.T3') =|>
+State' := 2 
+/\ T4' := new()
+/\ TIDinew' := new()
+/\ Snd({RUi'.Rgwn'.Rsdj'.IDi.IDsdj.IDgwn.
+H(H(IDsdj.Kgwnsdj))}_H(IDi.Kgwnui).
+xor(TIDinew', H(TIDi'.H(IDi.Kgwnui).T3'.T4')).
+H(H(H(IDi.IDsdj.IDgwn.RUi'.Rgwn'.Rsdj'.
+H(H(IDi.Kgwnui)).H(H(IDsdj.Kgwnsdj))).T3').T4'.RUi').T3'.T4')
+end role
+
+role smartdevice(
+SPi, RA, GWNODE, SD : agent,
+S : symmetric_key,
+H : hash_func,
+Snd, Rcv : channel(dy)
+)
+played_by SD
+def=
+local State: nat, IDi, IDsdj, IDgwn, PWi, BIOi, RPWi, A: text,
+R, Kgwnui, Kgwnsdj, Rgwn, Rsdj, T2, M1, RUi, TIDi,TIDinew, Ruistar: text,
+M2, M3, M4, M6, M7, M8, M10, M11, M12, T3, T4, Sigmai: text, Gen, Rep : hash_func
+const ui_gwn_t1, ui_gwn_rui, gwn_ui_t4, gwn_ui_tidinew,sr1,sr2: protocol_id
+init State := 0
+transition
+1. State = 0 /\ Rcv({IDi.IDgwn.Ruistar'.Rgwn'.H(M4')}_M6'.M8'.T2') =|> State' := 1
+/\ Rsdj' := new()
+/\ T3' := new()
+/\ M10' := xor(H(H(IDsdj.Kgwnsdj').T3'),Rsdj')
+/\ M11' := H(H(IDi.IDsdj.IDgwn.Ruistar'.Rgwn'.Rsdj'.H(M4').H(H(IDsdj.Kgwnsdj)).T3'))
+/\ M12' := H(Rsdj'.Rgwn'.IDsdj.IDgwn.T3')
+/\ Snd(M10'.M11'.M12'.T3')
+end role
+
+role session (SPi, RA, GWNODE, SD: agent, H: hash_func, S: symmetric_key)
+def=
+local S1, R1, S2, R2, S3, R3, S4, R4: channel (dy)
+composition
+user(SPi, RA, GWNODE, SD, H, S, S1, R1)
+/\ regAuthority(SPi, RA, GWNODE, SD, H, S, S2, R2)
+/\ gatewayNode (SPi, RA, GWNODE, SD, S, H, S3, R3)
+/\ smartdevice (SPi, RA, GWNODE, SD, S, H, S2, R2)
+end role
+
+role environment()
+def=
+const spi, ra, gwnode, sd: agent, h: hash_func, s: symmetric_key,
+kgwnui, kgwnsdj, idi, idsnj, idgwn, t1, t2, t3, t4, tidi, tidinew: text,
+gen, rep: hash_func, ui_gwn_t1, ui_gwn_rui, gwn_sdj_t2, gwn_sdj_rgwn,
+sdj_gwn_t3, sdj_gwn_rsdj, sr1, s2: protocol_id
+intruder_knowledge ={t1, t2, t3, t4, h, gen, rep}
+composition
+session(spi, ra, gwnode, sd, h, s) /\ session(i, ra, gwnode, sd, h, s)
+/\ session(spi, i, gwnode, sd, h, s) /\ session(spi, ra, i, sd, h, s)
+/\ session(spi, ra, gwnode, i, h, s)
+end role
+
+goal
+secrecy_of sr1, sr2
+authentication_on ui_gwn_t1, ui_gwn_rui, gwn_sdj_t2
+authentication_on gwn_sdj_rgwn, sdj_gwn_t3, sdj_gwn_rsdj
+authentication_on gwn_ui_t4, gwn_ui_tidinew
+end goal
+
+environment()
